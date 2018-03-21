@@ -87,7 +87,7 @@ figure; plot(t, N_z_off,    t, N_z_on);   legend('OFF', 'ON'); title('Load facto
 
 
 %% 4) VARIANCES:
-%% Using analytical power spectra:
+%% Using analyti
 
 
 %% LYAPUNOV:

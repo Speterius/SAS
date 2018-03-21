@@ -8,7 +8,7 @@ function [t, V, alpha, theta, qc_V, N_z] = time_simulation(sys, dt, T_max, seed)
 
 % OUTPUT:   t:      time data           [s]
 %           + 4 longitudinal states aircraft states
-%           + N_z load factor           [g units]
+%           + N_
 
 % Check for input errors:
 if ~isa(sys, 'ss')
@@ -31,7 +31,7 @@ end
 % TIME OUTPUT:
     y = lsim(sys,u,t);
     
-% Select relevant states and add load factor from Nz = V * gamma_dot/g
+% Select relevant states and add load factor from Nz = V * gamma_dot
     V = y(:,1);
     alpha = y(:,2);
     theta = y(:,3);
