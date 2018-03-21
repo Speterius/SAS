@@ -102,6 +102,7 @@ legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]');
 
 figure; plot(t, N_z_off,    t, N_z_on); title('Load factor - N_z'); ylabel('N_z [g units]');   
 legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); 
+pause
 
 %% 3) SPECTRAL ANALYSIS:
 %% Analytical:
@@ -111,7 +112,7 @@ legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]');
 w = logspace(-2,2,300);
 
 % Uncontrolled aircraft:
-S_V_off     = analytic_psd(uncont, 3, 1, w);
+S_V_off_a     = analytic_psd(uncont, 3, 1, w);
 S_alpha_off = analytic_psd(uncont, 3, 2, w);
 S_theta_off = analytic_psd(uncont, 3, 3, w);
 S_q_off     = analytic_psd(uncont, 3, 4, w);
@@ -124,8 +125,21 @@ S_theta_on = analytic_psd(cont, 3, 3, w);
 S_q_on     = analytic_psd(cont, 3, 4, w);
 S_N_on     = analytic_psd(cont, 3, 8, w);
 
+%% Experimental using FFT:
+
+
+
+
+%% Experimental using PWELCH:
+
+
+
+
+
+
+
 %% Visualize PSDS plots:
-figure; loglog(w, S_V_off, w, S_V_on, 'LineWidth',2); title('Velocity PSD'); ylabel('S_{VV}'); 
+figure; loglog(w, S_V_off_a, w, S_V_on, 'LineWidth',2); title('Velocity PSD'); ylabel('S_{VV}'); 
 legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
 
 figure; loglog(w, S_alpha_off, w, S_alpha_on, 'LineWidth',2); title('Angle of attack PSD'); ylabel('S_{\alpha\alpha}'); 
@@ -139,14 +153,6 @@ legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
 
 figure; loglog(w, S_N_off, w, S_N_on, 'LineWidth',2); title('Load factor PSD'); ylabel('S_{NN}'); 
 legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
-
-%% Experimental FFT:
-
-
-
-%% Experimental PWELCH:
-
-
 
 %% 4) VARIANCES:
 %% Using analytical power spectra:
