@@ -50,14 +50,14 @@ pause
 [~, ~, poles_cont] = damp(cont(3, 1));
 
 if any(real(poles_uncont)>0)
-    display('Uncontrolled system is unstable.')
+    disp('Uncontrolled system is unstable.')
 else
-    display('Uncontrolled system is stable.')
+    disp('Uncontrolled system is stable.')
 end
 if any(real(poles_cont)>0)
-    display('Controlled system is unstable.')
+    disp('Controlled system is unstable.')
 else
-    display('Controlled system is stable.')
+    disp('Controlled system is stable.')
 end
 
 % Show pole zero map for all input-output loops;
@@ -75,7 +75,7 @@ cont = extend_state_space(cont, V, c);
 
 % Time Simulation Settings:
 dt = 0.01;
-T = 1000+dt;
+T = 1000;
 
 % set seed for consistent results:
 seed = 32;
@@ -129,17 +129,16 @@ S_N_on_a     = analytic_psd(cont, 3, 8, w);
 
 %% Experimental using FFT:
 
-dt = 0.001;
-T = 10000;
-
+dt = 0.01;
+T = 1000;
 [omega, S_V_off_e, S_alpha_off_e, S_theta_off_e, S_q_off_e, S_N_off_e] = experi_psd(uncont, dt, T+dt, seed);
 [~,     S_V_on_e,  S_alpha_on_e,  S_theta_on_e,  S_q_on_e,  S_N_on_e]  = experi_psd(cont, dt, T+dt, seed);
-display("done")
+disp("finished with PSD calc")
 
 %% Experimental using PWELCH:
 
 
-
+%% Experimental data least squares parameter estimation:
 
 
 %% Visualize PSDS plots:
