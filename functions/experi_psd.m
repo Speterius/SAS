@@ -1,4 +1,4 @@
-function [omega, S_V, S_alpha, S_theta, S_q, S_N] = experi_psd(sys, dt, T, seed)
+function [omega, S_V, S_alpha, S_theta, S_q, S_N, PSD_pwelch_out, w_pwelch_out] = experi_psd(sys, dt, T, seed)
 
 % Based on exampl83.m
 
@@ -9,6 +9,8 @@ function [omega, S_V, S_alpha, S_theta, S_q, S_N] = experi_psd(sys, dt, T, seed)
 %           seed:       RNG seed integer                        [-]
 
 % OUTPUT:   PSD as a function of w freq logspace
+%           PSD_pwelch_out - 5 column matrix containing PSD pwelch data
+%           w_pwelch_out   - frequency data from the pwelch routine
 
 % Check for input errors:
     if ~isa(sys, 'ss')
@@ -40,18 +42,18 @@ function [omega, S_V, S_alpha, S_theta, S_q, S_N] = experi_psd(sys, dt, T, seed)
 
 % COMPUTE PERIODOGRAM AND ESTIMATE PSD
 % PERIODOGRAM
-    V       = dt*fft(V);
-    alpha   = dt*fft(alpha);
-    theta   = dt*fft(theta);
-    qc_V    = dt*fft(qc_V);
-    N_z     = dt*fft(N_z);
+    V_f       = dt*fft(V);
+    alpha_f   = dt*fft(alpha);
+    theta_f   = dt*fft(theta);
+    qc_V_f    = dt*fft(qc_V);
+    N_z_f     = dt*fft(N_z);
 
 % PSD ESTIMATE
-    S_V     = (1/T)*( V.*conj(V));
-    S_alpha = (1/T)*(  alpha.*conj(alpha));
-    S_theta = (1/T)*(    theta.*conj(theta));
-    S_q     = (1/T)*(    qc_V.*conj(qc_V));
-    S_N     = (1/T)*(N_z.*conj(N_z));
+    S_V     = (1/T)*( V_f.*conj(V_f));
+    S_alpha = (1/T)*(  alpha_f.*conj(alpha_f));
+    S_theta = (1/T)*(    theta_f.*conj(theta_f));
+    S_q     = (1/T)*(    qc_V_f.*conj(qc_V_f));
+    S_N     = (1/T)*(N_z_f.*conj(N_z_f));
 
 % DEFINE FREQUENCY VECTOR
     fs = 1/dt;     % sample frequency
@@ -64,4 +66,11 @@ function [omega, S_V, S_alpha, S_theta, S_q, S_N] = experi_psd(sys, dt, T, seed)
     S_q         = S_q(1:N/2);
     S_N         = S_N(1:N/2);
     
+%% Use pwelch routine:    
+% time data:
+    x = [V, alpha, theta, qc_V, N_z];
+    
+% pwelch routine:
+    [PSD_pwelch_out, w_pwelch_out] = pwelch(x);
+
 end

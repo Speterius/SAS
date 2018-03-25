@@ -35,7 +35,6 @@ figure; step(cont(1:4, 1), opt); title('Autopilot on')
 [~, zeta] = damp(tf(cont(3, 1)));
 zeta_phug = zeta(1);
 display(zeta_phug)
-pause
 %% 1) STABILITY ANALYSIS
 %%
 % a) state space systems used: 
@@ -65,7 +64,6 @@ end
 %figure; iopzmap(cont(1:4,1)); title('Pitch damper ON');
 
 % All longitudinal eigenmodes (short period + phugoid) are stable for both cases.
-pause
 %% 2) TIME-DOMAIN ANALYSIS
 %%
 % Extend the state spaces with an 8th output: gamma_dot = theta_dot - alpha_dot
@@ -102,7 +100,6 @@ legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]');
 
 figure; plot(t, N_z_off,    t, N_z_on); title('Load factor - N_z'); ylabel('N_z [g units]');   
 legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); 
-pause
 
 %% 3) SPECTRAL ANALYSIS:
 % Subscript off/on for pitch damper status
@@ -127,41 +124,57 @@ S_theta_on_a = analytic_psd(cont, 3, 3, w);
 S_q_on_a     = analytic_psd(cont, 3, 4, w);
 S_N_on_a     = analytic_psd(cont, 3, 8, w);
 
-%% Experimental using FFT:
-
+%% Experimental using FFT and pwelch:
 dt = 0.01;
-T = 1000;
-[omega, S_V_off_e, S_alpha_off_e, S_theta_off_e, S_q_off_e, S_N_off_e] = experi_psd(uncont, dt, T+dt, seed);
-[~,     S_V_on_e,  S_alpha_on_e,  S_theta_on_e,  S_q_on_e,  S_N_on_e]  = experi_psd(cont, dt, T+dt, seed);
-disp("finished with PSD calc")
+T = 100000;
+[omega, S_V_off_e, S_alpha_off_e, S_theta_off_e, S_q_off_e, S_N_off_e, PW_uncont, PW_w_uncont] = experi_psd(uncont, dt, T+dt, seed);
+[~,     S_V_on_e,  S_alpha_on_e,  S_theta_on_e,  S_q_on_e,  S_N_on_e, PW_cont, PW_w_cont]  = experi_psd(cont, dt, T+dt, seed);
+disp("Finished with PSD calc")
 
-%% Experimental using PWELCH:
+%% Collect data from PWELCH:
+S_V_off_p = PW_uncont(:, 1);
+S_alpha_off_p = PW_uncont(:, 2);
+S_theta_off_p = PW_uncont(:, 3);
+S_q_off_p = PW_uncont(:, 4);
+S_N_off_p = PW_uncont(:, 5);
 
-
-%% Experimental data least squares parameter estimation:
-
+S_V_on_p = PW_cont(:, 1);
+S_alpha_on_p = PW_cont(:, 2);
+S_theta_on_p = PW_cont(:, 3);
+S_q_on_p = PW_cont(:, 4);
+S_N_on_p = PW_cont(:, 5);
 
 %% Visualize PSDS plots:
+%PW_w_uncont = PW_w_uncont * 256;
+%PW_w_cont = PW_w_cont * 256;
+close all;
 figure;  
-loglog(omega, S_V_off_e, '--', omega, S_V_on_e, '--')
+loglog(omega, movmean(S_V_off_e, 8), '--', omega, movmean(S_V_on_e, 40), '--', 'LineWidth',2)
+hold on;
+loglog(PW_w_uncont, S_V_off_p, PW_w_cont, S_V_on_p)
 hold on;
 loglog(w, S_V_off_a, w, S_V_on_a, 'LineWidth',2);
-legend('Anaytic - Pitch damper OFF', 'Analytic - Pitch damper ON', 'Experimental - Pitch damper OFF', 'Experimental - Pitch damper ON'); 
+legend('Experimental FFT - Pitch damper OFF', ...
+       'Experimental FFT - Pitch damper ON',...
+       'Experimental PWELCH - Pitch damper OFF', ...
+       'Experimental PWELCH - Pitch damper ON',...
+       'Anaytic - Pitch damper OFF', ...
+       'Anaytic - Pitch damper ON'); 
 grid; title('Velocity PSD'); ylabel('S_{VV}'); xlabel('log w');
 
 %%
 
-figure; loglog(w, S_alpha_off_a, w, S_alpha_on_a, 'LineWidth',2); title('Angle of attack PSD'); ylabel('S_{\alpha\alpha}'); 
-legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
-
-figure; loglog(w, S_theta_off_a, w, S_theta_on_a, 'LineWidth',2); title('Pitch angle PSD'); ylabel('S_{\theta\theta}'); 
-legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
-
-figure; loglog(w, S_q_off_a, w, S_q_on_a, 'LineWidth',2); title('Pitch rate PSD'); ylabel('S_{qq}'); 
-legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
-
-figure; loglog(w, S_N_off_a, w, S_N_on_a, 'LineWidth',2); title('Load factor PSD'); ylabel('S_{NN}'); 
-legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
+% figure; loglog(w, S_alpha_off_a, w, S_alpha_on_a, 'LineWidth',2); title('Angle of attack PSD'); ylabel('S_{\alpha\alpha}'); 
+% legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
+% 
+% figure; loglog(w, S_theta_off_a, w, S_theta_on_a, 'LineWidth',2); title('Pitch angle PSD'); ylabel('S_{\theta\theta}'); 
+% legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
+% 
+% figure; loglog(w, S_q_off_a, w, S_q_on_a, 'LineWidth',2); title('Pitch rate PSD'); ylabel('S_{qq}'); 
+% legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
+% 
+% figure; loglog(w, S_N_off_a, w, S_N_on_a, 'LineWidth',2); title('Load factor PSD'); ylabel('S_{NN}'); 
+% legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('log w'); grid;
 
 %% 4) VARIANCES:
 %% Using analytical power spectra:
