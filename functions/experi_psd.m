@@ -1,4 +1,4 @@
-function [omega, S_V, S_alpha, S_theta, S_q, S_N, PSD_pwelch_out, w_pwelch_out] = experi_psd(sys, dt, T, seed)
+function [omega, S_V, S_alpha, S_theta, S_q, S_N, PSD_pwelch_out, f] = experi_psd(sys, dt, T, seed, NFFT)
 
 % Based on exampl83.m
 
@@ -71,6 +71,8 @@ function [omega, S_V, S_alpha, S_theta, S_q, S_N, PSD_pwelch_out, w_pwelch_out] 
     x = [V, alpha, theta, qc_V, N_z];
     
 % pwelch routine:
-    [PSD_pwelch_out, w_pwelch_out] = pwelch(x);
+    window = floor(3*N/5);
+    noverlap = floor(window/2);
+    [PSD_pwelch_out, f] = pwelch(x, window, noverlap, NFFT, fs);
 
 end

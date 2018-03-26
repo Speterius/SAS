@@ -2,7 +2,7 @@ function ss_ext = extend_state_space(sys, V, c)
 
 % INPUT: STATE SPACE SYSTEM 7x7: [u alpha theta q u_g alpha_g alpha_g_dot]
 
-% OUTPUT: Extended state space with gamma_dot = theta_dot - alpha_dot added to C
+% OUTPUT: Extended state space with N_z = V/g*(q - alpha_dot) added to C
 % and D matrices
 
     if ~isa(sys, 'ss')
