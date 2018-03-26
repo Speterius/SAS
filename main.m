@@ -2,6 +2,17 @@
 clc; clear all; close all;
 addpath('functions', 'ML_ae4304')
 
+str = input('Show all figures? [Y/N]: ','s');
+if isempty(str)
+    str = 'Y';
+end
+
+if str == 'y' || str == 'Y'
+    visualize = true;
+elseif str == 'n' || str == 'N'
+    visualize = false;
+end
+
 %% 0) GENERATE A/C + GUST + CONTROLLER STATE SPACE MODELS
 %%
 % Turbulence scale length and intensity::
@@ -16,8 +27,11 @@ sigma_wg    = 1;        % [m/s]
 disp('Building aircraft model.')
 uncont = cessna;
 opt = stepDataOptions('StepAmplitude',-1);
-figure; step(uncont(1:4, 1), opt); grid; title('Autopilot off')
 
+if visualize
+    figure; step(uncont(1:4, 1), opt); grid; title('Autopilot off')
+end
+    
 % Add autopilot controller:
 % Select K_theta from Root-locus with negative gains:
 dK = 0.1;
@@ -31,7 +45,10 @@ K = [0 0 K_theta 0 0 0 0];
 % Construct controlled model:
 cont = cessna;
 cont.A = cessna.A-cessna.B(:,1)*K;
-figure; step(cont(1:4, 1), opt); title('Autopilot on')
+
+if visualize
+    figure; step(cont(1:4, 1), opt); title('Autopilot on')
+end
 
 % Check phugoid damping:
 [~, zeta] = damp(tf(cont(3, 1)));
@@ -86,20 +103,22 @@ disp('Running time simulation.')
 [~, V_on, alpha_on, theta_on, qc_V_on, N_z_on] = time_simulation(cont, dt, T, seed, V, c);
 
 % Visualize Time plots for the 5 states:
-figure; plot(t, V_off, t, V_on); title('Velocity - V'); ylabel('V [m/s]'); 
-legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
+if visualize
+    figure; plot(t, V_off, t, V_on); title('Velocity - V'); ylabel('V [m/s]'); 
+    legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 
-figure; plot(t, alpha_off, t, alpha_on); title('Angle of attack - \alpha'); ylabel('\alpha [deg]'); 
-legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
+    figure; plot(t, alpha_off, t, alpha_on); title('Angle of attack - \alpha'); ylabel('\alpha [deg]'); 
+    legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 
-figure; plot(t, theta_off,  t, theta_on); title('Pitch angle - \theta'); ylabel('\theta [deg]'); 
-legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
- 
-figure; plot(t, qc_V_off,   t, qc_V_on); title('Pitch rate - q'); ylabel('q [deg/s]'); 
-legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
+    figure; plot(t, theta_off,  t, theta_on); title('Pitch angle - \theta'); ylabel('\theta [deg]'); 
+    legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 
-figure; plot(t, N_z_off,    t, N_z_on); title('Load factor - N_z'); ylabel('N_z [g units]');   
-legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid; 
+    figure; plot(t, qc_V_off,   t, qc_V_on); title('Pitch rate - q'); ylabel('q [deg/s]'); 
+    legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
+
+    figure; plot(t, N_z_off,    t, N_z_on); title('Load factor - N_z'); ylabel('N_z [g units]');   
+    legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
+end
 
 %% 3) SPECTRAL ANALYSIS:
 % Subscripts:   - V/alpha/theta/q/N -for the 5 states
@@ -109,23 +128,28 @@ legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 %                                   -> 30 PSDs
 %% 3a) Analytical:
 % // see analytic_psd.m //
+% analytic_psd() - input_nr = 3 for vertical gust:
 
 % Frequency data:
-w = logspace(-2,2,200);
+Nomega = 2000;
+w_a = logspace(-2,2,Nomega);
 
 % Uncontrolled aircraft:
-S_V_off_a     = analytic_psd(uncont, 3, 1, w);
-S_alpha_off_a = analytic_psd(uncont, 3, 2, w);
-S_theta_off_a = analytic_psd(uncont, 3, 3, w);
-S_q_off_a     = analytic_psd(uncont, 3, 4, w);
-S_N_off_a     = analytic_psd(uncont, 3, 8, w);
+S_V_off_a     = analytic_psd(uncont, 3, 1, w_a);
+S_alpha_off_a = analytic_psd(uncont, 3, 2, w_a);
+S_theta_off_a = analytic_psd(uncont, 3, 3, w_a);
+S_q_off_a     = analytic_psd(uncont, 3, 4, w_a);
+S_N_off_a     = analytic_psd(uncont, 3, 8, w_a);
 
 % Controlled aircraft
-S_V_on_a     = analytic_psd(cont, 3, 1, w);
-S_alpha_on_a = analytic_psd(cont, 3, 2, w);
-S_theta_on_a = analytic_psd(cont, 3, 3, w);
-S_q_on_a     = analytic_psd(cont, 3, 4, w);
-S_N_on_a     = analytic_psd(cont, 3, 8, w);
+S_V_on_a     = analytic_psd(cont, 3, 1, w_a);
+S_alpha_on_a = analytic_psd(cont, 3, 2, w_a);
+S_theta_on_a = analytic_psd(cont, 3, 3, w_a);
+S_q_on_a     = analytic_psd(cont, 3, 4, w_a);
+S_N_on_a     = analytic_psd(cont, 3, 8, w_a);
+
+S_xx_off = [S_V_off_a, S_alpha_off_a, S_theta_off_a, S_q_off_a, S_N_off_a];
+S_xx_on = [S_V_on_a, S_alpha_on_a, S_theta_on_a, S_q_on_a, S_N_on_a];
 
 %% 3b) 3c) Experimental using FFT and pwelch:
 
@@ -150,17 +174,108 @@ S_q_on_p        = PW_cont(:, 4);
 S_N_on_p        = PW_cont(:, 5);
 
 % rename frequency axes:
-w_a = w;
 w_e = omega;
 w_p = 2*pi*PW_w_cont;
 
 %% 3d) Visualize PSDS plots:
-plot_psds
-plot_psds_subplots
+if visualize
+    plot_psds
+    plot_psds_subplots
+end
 
 %% 4) VARIANCES:
+% Clear memory except the state space models and the analyitical power spectra:
+clearvars -except cont uncont w_a S_xx_off S_xx_on Nomega
 %% 4a) Using analytical power spectra:
+disp('Calculating variances.')
+% // based on example74a.m //
+% Sxx = [S_v S_alpha S_theta S_q S_N] 
+
+n_states = 5;
+
+var_off = zeros(1,n_states);
+var_on = zeros(1,n_states);
+
+for i=1:Nomega-1
+    for j=1:n_states
+        var_off(j)=var_off(j)+(w_a(i+1)-w_a(i))*S_xx_off(i,j);
+        var_on(j)=var_on(j)+(w_a(i+1)-w_a(i))*S_xx_on(i,j);
+    end
+end
+
+var_off=var_off/pi;
+var_on = var_on/pi;
+
+% 4b) Lyapunov:
+% // based on example72.m //
+Wc = 1.0;
+% Pitch damper OFF: uncont
+A = uncont.A;
+B = uncont.B(:,3);
+C = uncont.C;
+D = uncont.D;
+
+L_off = lyap(A,B*Wc*B');
+% Output covariance matrix:
+P_off = C*L_off*C' + D*Wc*D';
+
+% Select diagonals (1:4) of L + the load factor diagonal (8) of P:
+lyap_var_off = [diag(L_off(1:4, 1:4))', P_off(8, 8)];
+
+% Pitch damper ON: cont
+A = cont.A;
+B = cont.B(:,3);
+C = cont.C;
+D = cont.D;
+
+L_on = lyap(A,B*Wc*B');
+% Output covariance matrix:
+P_on = C*L_on*C' + D*Wc*D';
+
+% Select diagonals (1:4) of L + the load factor diagonal (8) of P:
+lyap_var_on = [diag(L_on(1:4, 1:4))', P_on(8, 8)];
+
+% 4c) USING var.m:
+
+% set weight:
+%               w = 0 - normalize by Nomega
+%               w = 1 - normalize by Nomega-1
+weight = 1;
+V_off  = var(S_xx_off);
+V_on   = var(S_xx_on);
+
+% My version of var.m:
+
+var_peter_off = zeros(1,5);
+var_peter_on  = zeros(1,5);
+
+for k = 1:5
+    x = S_xx_off(:,k);
+    y = S_xx_on(:,k);
+    n = size(x,1);
+    n2 = size(y,1);
+    dim = 1;
+    var_peter_off(k) = sum(abs(x - sum(x,dim)./n).^2, dim);
+    var_peter_on(k) = sum(abs(y - sum(y,dim)./n2).^2, dim);
+end
 
 
-%% 4b) Lyapunov:
-%ii) example72
+
+%% Create table with variances:
+
+% Pitch damper off:
+VAR = [var_off; lyap_var_off; V_off; var_peter_off];
+SIGMA_off = table(VAR(:, 1), VAR(:, 2), VAR(:, 3), VAR(:, 4), VAR(:, 5),...
+    'VariableNames', {'sigma_V','sigma_alpha','sigma_theta','sigma_q','sigma_Nz'},...
+    'RowNames', {'From Analyitical PSD','From LYAP','From var.m', 'From peter_var.m'});
+
+% Pitch damper on:
+VAR = [var_on; lyap_var_on; V_on; var_peter_on];
+SIGMA_on = table(VAR(:, 1), VAR(:, 2), VAR(:, 3), VAR(:, 4), VAR(:, 5),...
+    'VariableNames', {'sigma_V','sigma_alpha','sigma_theta','sigma_q','sigma_Nz'},...
+    'RowNames', {'From Analyitical PSD','From LYAP','From var.m', 'From peter_var.m'});
+
+
+display(SIGMA_off)
+display(SIGMA_on)
+
