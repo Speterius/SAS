@@ -22,21 +22,24 @@ sigma_wg    = 1;        % [m/s]
 % Generate A and B matrices using aircraft c&s derivatives provided:
 % // see generate_state_space.m //
 [cessna, ~, ~, ~, ~, V, c, sigmaug_V, sigmaag] = generate_state_space(sigma_wg, Lg);
-%%
+%
 % Look at uncontrolled phugoid:
 disp('Building aircraft model.')
 uncont = cessna;
 opt = stepDataOptions('StepAmplitude',-1);
 
 if visualize
-    figure; step(uncont(1:4, 1), opt); grid; title('Autopilot off')
+    figure; step(uncont(3, 1), opt); grid; title('Autopilot off')
 end
     
 % Add autopilot controller:
 % Select K_theta from Root-locus with negative gains:
 dK = 0.1;
 %
-%figure; rlocus(cessna(3, 1), 0:-dK:-50);title('Cessna pitch root locus')
+if visualize
+    figure; rlocus(cessna(3, 1), 0:-dK:-50);title('Cessna pitch root locus')
+end
+
 % Graphically chosen gain for 0.5 damping ratio:
 disp('Adding pitch damper.')
 K_theta = -0.11703;
@@ -47,7 +50,7 @@ cont = cessna;
 cont.A = cessna.A-cessna.B(:,1)*K;
 
 if visualize
-    figure; step(cont(1:4, 1), opt); title('Autopilot on')
+    figure; step(cont(3, 1), opt); title('Autopilot on'); grid; 
 end
 
 % Check phugoid damping:
@@ -64,8 +67,8 @@ display(zeta_phug)
 % aircraft is dynamically stable if both the phugoid and short period are stable ->
 %       check poles are in LHP for beta to theta:
 
-[~, ~, poles_uncont] = damp(uncont(3, 1));
-[~, ~, poles_cont] = damp(cont(3, 1));
+[~, ~, poles_uncont] = damp(uncont(:, :));
+[~, ~, poles_cont] = damp(cont(:, :));
 
 if any(real(poles_uncont)>0)
     disp('Uncontrolled system is unstable.')
@@ -90,9 +93,9 @@ end
 uncont = extend_state_space(uncont, V, c);
 cont = extend_state_space(cont, V, c);
 
-% Time Simulation Settings:
-dt = 0.01;
-T = 1000;
+%% Time Simulation Settings:
+dt = 0.1;
+T = 5000;
 seed = 32;
 
 % Run time simulation with pitch-damper OFF:
@@ -119,6 +122,14 @@ if visualize
     figure; plot(t, N_z_off,    t, N_z_on); title('Load factor - N_z'); ylabel('N_z [g units]');   
     legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 end
+
+%%
+figure;
+plot1 = plot(t,alpha_on, 'g');
+plot1.Color(4) = 1;
+hold on
+plot2 = plot(t, alpha_off, 'b');
+plot2.Color(4) = 0.5;
 
 %% 3) SPECTRAL ANALYSIS:
 % Subscripts:   - V/alpha/theta/q/N -for the 5 states
@@ -185,7 +196,7 @@ end
 
 %% 4) VARIANCES:
 % Clear memory except the state space models and the analyitical power spectra:
-clearvars -except cont uncont w_a S_xx_off S_xx_on Nomega
+clearvars -except cont uncont w_a S_xx_off S_xx_on Nomega T dt V c
 %% 4a) Using analytical power spectra:
 disp('Calculating variances.')
 % // based on example74a.m //
@@ -235,47 +246,42 @@ P_on = C*L_on*C' + D*Wc*D';
 % Select diagonals (1:4) of L + the load factor diagonal (8) of P:
 lyap_var_on = [diag(L_on(1:4, 1:4))', P_on(8, 8)];
 
-% 4c) USING var.m:
+%% 4c) USING var.m:
+% Get time traces:
+dt = 0.01;
+T = 100000;
+seed = 32;
+% Run time simulation with pitch-damper OFF:
+[t, V_off, alpha_off, theta_off, qc_V_off, N_z_off] = time_simulation(uncont, dt, T, seed, V, c);
+[~, V_on, alpha_on, theta_on, qc_V_on, N_z_on] = time_simulation(cont, dt, T, seed, V, c);
 
-% set weight:
-%               w = 0 - normalize by Nomega
-%               w = 1 - normalize by Nomega-1
+TRACE_off    = [V_off, alpha_off, theta_off, qc_V_off, N_z_off];
+TRACE_on  = [V_on, alpha_on, theta_on, qc_V_on, N_z_on];
+
 weight = 1;
-V_off  = var(S_xx_off);
-V_on   = var(S_xx_on);
-
-% My version of var.m:
-
-var_peter_off = zeros(1,5);
-var_peter_on  = zeros(1,5);
-
-for k = 1:5
-    x = S_xx_off(:,k);
-    y = S_xx_on(:,k);
-    n = size(x,1);
-    n2 = size(y,1);
-    dim = 1;
-    var_peter_off(k) = sum(abs(x - sum(x,dim)./n).^2, dim);
-    var_peter_on(k) = sum(abs(y - sum(y,dim)./n2).^2, dim);
-end
+V_off  = var(TRACE_off, weight);
+V_on   = var(TRACE_on, weight);
 
 
-
-%% Create table with variances:
+% Create table with variances:
 
 % Pitch damper off:
-VAR = [var_off; lyap_var_off; V_off; var_peter_off];
+VAR = [var_off; lyap_var_off; V_off];
 SIGMA_off = table(VAR(:, 1), VAR(:, 2), VAR(:, 3), VAR(:, 4), VAR(:, 5),...
     'VariableNames', {'sigma_V','sigma_alpha','sigma_theta','sigma_q','sigma_Nz'},...
-    'RowNames', {'From Analyitical PSD','From LYAP','From var.m', 'From peter_var.m'});
+    'RowNames', {'From Analyitical PSD','From LYAP','From var.m'});
 
 % Pitch damper on:
-VAR = [var_on; lyap_var_on; V_on; var_peter_on];
+VAR = [var_on; lyap_var_on; V_on];
 SIGMA_on = table(VAR(:, 1), VAR(:, 2), VAR(:, 3), VAR(:, 4), VAR(:, 5),...
     'VariableNames', {'sigma_V','sigma_alpha','sigma_theta','sigma_q','sigma_Nz'},...
-    'RowNames', {'From Analyitical PSD','From LYAP','From var.m', 'From peter_var.m'});
+    'RowNames', {'From Analyitical PSD','From LYAP','From var.m'});
 
 
 display(SIGMA_off)
 display(SIGMA_on)
 
+%%
+disp('  Press any button to close all windows.')
+pause
+close all;
