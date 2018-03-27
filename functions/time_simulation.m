@@ -35,9 +35,15 @@ end
     y = lsim(sys,u,t);
     
 % Select relevant states and add load factor + change units to Si
-    V = y(:,1)      *V_trim + V_trim;
-    alpha = y(:,2)  *180/pi;
-    theta = y(:,3)  *180/pi;
-    qc_V = y(:,4)   *V_trim*180/pi/c;
+%     V = y(:,1)      *V_trim + V_trim;
+%     alpha = y(:,2)  *180/pi;
+%     theta = y(:,3)  *180/pi;
+%     qc_V = y(:,4)   *V_trim*180/pi/c;
+%     N_z = y(:,8);
+    
+    V = y(:,1);
+    alpha = y(:,2);
+    theta = y(:,3);
+    qc_V = y(:,4);
     N_z = y(:,8);
 end

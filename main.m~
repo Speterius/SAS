@@ -2,7 +2,7 @@
 clc; clear all; close all;
 addpath('functions', 'ML_ae4304')
 
-str = input('Show all figures? [y/n]: ','s');
+str = input('Show all figures? [Y/N]: ','s');
 if isempty(str)
     str = 'Y';
 end
@@ -196,7 +196,7 @@ end
 
 %% 4) VARIANCES:
 % Clear memory except the state space models and the analyitical power spectra:
-clearvars -except cont uncont w_a S_xx_off S_xx_on Nomega T dt V c visualize
+clearvars -except cont uncont w_a S_xx_off S_xx_on Nomega T dt V c
 %% 4a) Using analytical power spectra:
 disp('Calculating variances.')
 % // based on example74a.m //
@@ -285,7 +285,7 @@ error13 = 100*(var_on-V_on)./var_on;
 
 error23 = 100*(lyap_var_on-V_on)./lyap_var_on
 
-error12 = 100*(var_on-lyap_var_on)./var_on
+error12 = 100*(var_on-V_on)./var_on
 
 %%
 if visualize
