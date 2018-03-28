@@ -1,4 +1,4 @@
-function [t, V, alpha, theta, qc_V, N_z] = time_simulation(sys, dt, T_max, seed, V_trim, c)
+function [t, V, alpha, theta, qc_V, N_z] = time_simulation(sys, dt, T_max, seed)
 
 % Based on exampl71.m
 
@@ -6,8 +6,6 @@ function [t, V, alpha, theta, qc_V, N_z] = time_simulation(sys, dt, T_max, seed,
 %           dt:     time_step           [Hz]
 %           T_max:  max time            [s]
 %           seed:   seed from main      [-]
-%           V_trim: trim speed          [m/s]
-%           c:      chord length        [m]
 
 % OUTPUT:   t:      time data           [s]
 %           + 4 longitudinal states aircraft states

@@ -1,12 +1,10 @@
 %% Init
 clc; clear all; close all;
 addpath('functions', 'ML_ae4304', 'plotting_scripts')
-
-str = input('Show all figures? [y/n]: ','s');
+str = input('Show all 30 figures?[y/n]: ','s');
 if isempty(str)
     str = 'Y';
 end
-
 if str == 'y' || str == 'Y'
     visualize = true;
 elseif str == 'n' || str == 'N'
@@ -22,8 +20,8 @@ sigma_wg    = 1;        % [m/s]
 % Generate A and B matrices using aircraft c&s derivatives provided:
 % // see generate_state_space.m //
 [cessna, ~, ~, ~, ~, V, c, sigmaug_V, sigmaag] = generate_state_space(sigma_wg, Lg);
-%
-% Look at uncontrolled phugoid:
+
+% Uncontrolled phugoid step response:
 disp('Building aircraft model.')
 uncont = cessna;
 opt = stepDataOptions('StepAmplitude',-1);
@@ -35,7 +33,6 @@ end
 % Add autopilot controller:
 % Select K_theta from Root-locus with negative gains:
 dK = 0.1;
-%
 if visualize
     figure; rlocus(cessna(3, 1), 0:-dK:-50);title('Cessna pitch root locus')
 end
@@ -45,7 +42,7 @@ disp('Adding pitch damper.')
 K_theta = -0.11703;
 K = [0 0 K_theta 0 0 0 0];
 
-% Construct controlled model:
+% Construct controlled model and check step response:
 cont = cessna;
 cont.A = cessna.A-cessna.B(:,1)*K;
 
@@ -101,22 +98,22 @@ seed = 32;
 % Run time simulation with pitch-damper OFF:
 % // See time_simulation.m //
 disp('Running time simulation.')
-[t, V_off, alpha_off, theta_off, qc_V_off, N_z_off] = time_simulation(uncont, dt, T, seed, V, c);
+[t, V_off, alpha_off, theta_off, qc_V_off, N_z_off] = time_simulation(uncont, dt, T, seed);
 % Run time simulation with pitch-damper ON:
-[~, V_on, alpha_on, theta_on, qc_V_on, N_z_on] = time_simulation(cont, dt, T, seed, V, c);
+[~, V_on, alpha_on, theta_on, qc_V_on, N_z_on] = time_simulation(cont, dt, T, seed);
 
 % Visualize Time plots for the 5 states:
 if visualize
-    figure; plot(t, V_off, t, V_on); title('Velocity - V'); ylabel('V [m/s]'); 
+    figure; plot(t, V_off, t, V_on); title('Velocity - V'); ylabel('u/V [-]'); 
     legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 
-    figure; plot(t, alpha_off, t, alpha_on); title('Angle of attack - \alpha'); ylabel('\alpha [deg]'); 
+    figure; plot(t, alpha_off, t, alpha_on); title('Angle of attack - \alpha'); ylabel('\alpha [rad]'); 
     legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 
-    figure; plot(t, theta_off,  t, theta_on); title('Pitch angle - \theta'); ylabel('\theta [deg]'); 
+    figure; plot(t, theta_off,  t, theta_on); title('Pitch angle - \theta'); ylabel('\theta [rad]'); 
     legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 
-    figure; plot(t, qc_V_off,   t, qc_V_on); title('Pitch rate - q'); ylabel('q [deg/s]'); 
+    figure; plot(t, qc_V_off,   t, qc_V_on); title('Pitch rate - q'); ylabel('qc/V [-]'); 
     legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 
     figure; plot(t, N_z_off,    t, N_z_on); title('Load factor - N_z'); ylabel('N_z [g units]');   
@@ -128,7 +125,7 @@ end
 %               - off/on            -for pitch damper status
 %               - a/e/p             -for analytical/experimental/pwelch
 %
-%                                   -> 30 PSDs
+%                                   -> 30 PSDs, lots of figures
 %% 3a) Analytical:
 % // see analytic_psd.m //
 % analytic_psd() - input_nr = 3 for vertical gust:
@@ -154,97 +151,86 @@ S_N_on_a     = analytic_psd(cont, 3, 8, w_a);
 S_xx_off = [S_V_off_a, S_alpha_off_a, S_theta_off_a, S_q_off_a, S_N_off_a];
 S_xx_on = [S_V_on_a, S_alpha_on_a, S_theta_on_a, S_q_on_a, S_N_on_a];
 
-% ANALYTIC PLOTS:
-if visualize
-    plot_psd_analytic
-end
-
 %% 3b) Experimental using FFT:
+
+% Settings also affect pwelch:
 seed = 32;
-dt = 0.01;
-T = 50000;
+dt = 0.1;
+T = 1000;
 disp('Running DFT calculations.')
-%[omega, S_V_off_e, S_alpha_off_e, S_theta_off_e, S_q_off_e, S_N_off_e] = experi_psd(uncont,dt, T+dt, seed);
-%[~,     S_V_on_e,  S_alpha_on_e,  S_theta_on_e,  S_q_on_e,  S_N_on_e]  = experi_psd(cont,  dt, T+dt, seed);
+[omega, S_V_off_e, S_alpha_off_e, S_theta_off_e, S_q_off_e, S_N_off_e] = experi_psd(uncont,dt, T+dt, seed);
+[~,     S_V_on_e,  S_alpha_on_e,  S_theta_on_e,  S_q_on_e,  S_N_on_e]  = experi_psd(cont,  dt, T+dt, seed);
+w_e = omega;
 
-
-% 3c) PWELCH Routine:
+%% 3c) PWELCH Routine:
+% // based on example 4.5 // 
 disp('Running PWELCH.')
-% settings:
+
+% Settings:
 N = T/dt;
-window = 0.1*N;
-noverlap = 50;
-NFFT = 2048;
+window = 500;
+noverlap = 25;
 fs = 1/dt;
 
-fres = fs/N;
-
 % Get time traces from lsim:
-[t_array, v_off, alpha_off, theta_off, q_off, N_off] = time_simulation(uncont, dt, T, seed, V, c);
-[~, v_on, alpha_on, theta_on, qc_V_on, N_z_on] = time_simulation(cont, dt, T, seed, V, c);
+[t_array, v_off, alpha_off, theta_off, q_off, N_off] = time_simulation(uncont, dt, T, seed);
+[~, v_on, alpha_on, theta_on, qc_V_on, N_z_on] = time_simulation(cont, dt, T, seed);
 
 % Execute pwelch.m
-%%
 [S_V_off_p,    f_p] = pwelch(v_off,     window, noverlap, N, fs, 'onesided'); S_V_off_p=S_V_off_p/2; S_V_off_p = S_V_off_p(2:N/2+1);
 [S_alpha_off_p, ~ ] = pwelch(alpha_off, window, noverlap, N, fs, 'onesided'); S_alpha_off_p=S_alpha_off_p/2; S_alpha_off_p = S_alpha_off_p(2:N/2+1);
-[S_theta_off_p, ~ ] = pwelch(theta_off, window, noverlap, N, fs, 'onesided'); 
-[S_q_off_p,     ~ ] = pwelch(q_off,     window, noverlap, N, fs, 'onesided'); 
-[S_N_off_p,     ~ ] = pwelch(N_off,     window, noverlap, N, fs, 'onesided'); 
+[S_theta_off_p, ~ ] = pwelch(theta_off, window, noverlap, N, fs, 'onesided'); S_theta_off_p=S_theta_off_p/2; S_theta_off_p = S_theta_off_p(2:N/2+1);
+[S_q_off_p,     ~ ] = pwelch(q_off,     window, noverlap, N, fs, 'onesided'); S_q_off_p=S_q_off_p/2; S_q_off_p = S_q_off_p(2:N/2+1);
+[S_N_off_p,     ~ ] = pwelch(N_off,     window, noverlap, N, fs, 'onesided'); S_N_off_p=S_N_off_p/2; S_N_off_p = S_N_off_p(2:N/2+1);
 
 [S_V_on_p,      ~ ] = pwelch(v_on,      window, noverlap, N, fs, 'onesided'); S_V_on_p=S_V_on_p/2; S_V_on_p = S_V_on_p(2:N/2+1);
-[S_alpha_on_p,  ~ ] = pwelch(alpha_on,  window, noverlap, N, fs, 'onesided');
-[S_theta_on_p,  ~ ] = pwelch(theta_on,  window, noverlap, N, fs, 'onesided');
-[S_q_on_p,      ~ ] = pwelch(qc_V_on,   window, noverlap, N, fs, 'onesided');
-[S_N_on_p,      ~ ] = pwelch(N_z_on,    window, noverlap, N, fs, 'onesided');
+[S_alpha_on_p,  ~ ] = pwelch(alpha_on,  window, noverlap, N, fs, 'onesided'); S_alpha_on_p=S_alpha_on_p/2; S_alpha_on_p = S_alpha_on_p(2:N/2+1);
+[S_theta_on_p,  ~ ] = pwelch(theta_on,  window, noverlap, N, fs, 'onesided'); S_theta_on_p=S_theta_on_p/2; S_theta_on_p = S_theta_on_p(2:N/2+1);
+[S_q_on_p,      ~ ] = pwelch(qc_V_on,   window, noverlap, N, fs, 'onesided'); S_q_on_p=S_q_on_p/2; S_q_on_p = S_q_on_p(2:N/2+1);
+[S_N_on_p,      ~ ] = pwelch(N_z_on,    window, noverlap, N, fs, 'onesided'); S_N_on_p=S_N_on_p/2; S_N_on_p = S_N_on_p(2:N/2+1);
 
-% rename frequency axes:
-%w_e = omega;
+% Handle frequency axis:
 f_p = f_p(2:N/2+1);
 w_p = 2*pi*f_p;
-%
+
+% SHOW ALL separate 15 figures for the 30 PSDS:
+disp('done')
 if visualize
-    %plot_psd_fft
-    %plot_psd_welch
+    plot_psd_analytic
+    plot_psd_fft
+    plot_psd_welch
 end
 
-%%
-% pwelch Velocity
-figure('rend','painters','pos',[10 10 900 600]); 
-loglog(w_p, S_V_off_p, w_p, S_V_on_p, 'Linewidth', 1);
-title('Welch PSD Velocity PSD'); legend('Pitch damper OFF','Pitch damper ON')
-ylabel('S_{VV}'); xlabel('log w'); grid;
-
-%% 3d) Visualize PSDS plots:
+%% 3d) Show figures for COPMARISON of methods:
 if visualize
-    plot_psds
     plot_psds_subplots
 end
 
 %% 4) VARIANCES:
-% Clear memory except the state space models and the analyitical power spectra:
-clearvars -except cont uncont w_a S_xx_off S_xx_on Nomega T dt V c visualize
-%% 4a) Using analytical power spectra:
 disp('Calculating variances.')
+%% 4a) Using analytical power spectra:
 % // based on example74a.m //
 % Sxx = [S_v S_alpha S_theta S_q S_N] 
 
 n_states = 5;
+var_off_a = zeros(1,n_states);
+var_on_a = zeros(1,n_states);
 
-var_off = zeros(1,n_states);
-var_on = zeros(1,n_states);
-
+% Integrate power spectral density for all 5 states:
 for i=1:Nomega-1
     for j=1:n_states
-        var_off(j)=var_off(j)+(w_a(i+1)-w_a(i))*S_xx_off(i,j);
-        var_on(j)=var_on(j)+(w_a(i+1)-w_a(i))*S_xx_on(i,j);
+        var_off_a(j)=var_off_a(j)+(w_a(i+1)-w_a(i))*S_xx_off(i,j);
+        var_on_a(j)=var_on_a(j)+(w_a(i+1)-w_a(i))*S_xx_on(i,j);
     end
 end
 
-var_off=var_off/pi;
-var_on = var_on/pi;
+var_off_a=var_off_a/pi;
+var_on_a = var_on_a/pi;
 
-% 4b) Lyapunov:
+%% 4b) Lyapunov:
 % // based on example72.m //
+
+% Intensity is 1:
 Wc = 1.0;
 % Pitch damper OFF: uncont
 A = uncont.A;
@@ -253,11 +239,21 @@ C = uncont.C;
 D = uncont.D;
 
 L_off = lyap(A,B*Wc*B');
-% Output covariance matrix:
-P_off = C*L_off*C' + D*Wc*D';
+
+
+% LOAD FACTOR VARIANCE:
+C_N = C(8,:);
+D_N = D(8,:);
+
+% Only interested in 3rd input channel:
+W_N = [0, 0, 0 ; 
+     0, 0, 0; 
+     0, 0, 1];
+
+var_NZ_off = C_N*L_off*C_N' + D_N*W_N*D_N';
 
 % Select diagonals (1:4) of L + the load factor diagonal (8) of P:
-lyap_var_off = [diag(L_off(1:4, 1:4))', P_off(8, 8)];
+lyap_var_off = [diag(L_off(1:4, 1:4))', var_NZ_off];
 
 % Pitch damper ON: cont
 A = cont.A;
@@ -266,11 +262,20 @@ C = cont.C;
 D = cont.D;
 
 L_on = lyap(A,B*Wc*B');
-% Output covariance matrix:
-P_on = C*L_on*C' + D*Wc*D';
+
+% LOAD FACTOR VARIANCE:
+C_N = C(8,:);
+D_N = D(8,:);
+
+% Only interested in 3rd input channel:
+W_N = [0, 0, 0 ; 
+     0, 0, 0; 
+     0, 0, 1];
+
+var_NZ_on = C_N*L_on*C_N' + D_N*W_N*D_N';
 
 % Select diagonals (1:4) of L + the load factor diagonal (8) of P:
-lyap_var_on = [diag(L_on(1:4, 1:4))', P_on(8, 8)];
+lyap_var_on = [diag(L_on(1:4, 1:4))', var_NZ_on];
 
 %% 4c) USING var.m:
 % Get time traces:
@@ -278,44 +283,60 @@ dt = 0.01;
 T = 100000;
 seed = 32;
 % Run time simulation with pitch-damper OFF:
-[t, V_off, alpha_off, theta_off, qc_V_off, N_z_off] = time_simulation(uncont, dt, T, seed, V, c);
-[~, V_on, alpha_on, theta_on, qc_V_on, N_z_on] = time_simulation(cont, dt, T, seed, V, c);
+[t, V_off, alpha_off, theta_off, qc_V_off, N_z_off] = time_simulation(uncont, dt, T, seed);
+[~, V_on, alpha_on, theta_on, qc_V_on, N_z_on] = time_simulation(cont, dt, T, seed);
 
 TRACE_off    = [V_off, alpha_off, theta_off, qc_V_off, N_z_off];
 TRACE_on  = [V_on, alpha_on, theta_on, qc_V_on, N_z_on];
 
-weight = 1;
-V_off  = var(TRACE_off, weight);
-V_on   = var(TRACE_on, weight);
-
+var_varm_off  = var(TRACE_off, 1);
+var_varm_on   = var(TRACE_on, 1);
 
 % Create table with variances:
 
 % Pitch damper off:
-VAR = [var_off; lyap_var_off; V_off];
+VAR = [var_off_a; lyap_var_off; var_varm_off];
 SIGMA_off = table(VAR(:, 1), VAR(:, 2), VAR(:, 3), VAR(:, 4), VAR(:, 5),...
-    'VariableNames', {'sigma_V','sigma_alpha','sigma_theta','sigma_q','sigma_Nz'},...
+    'VariableNames', {'sigma2_V','sigma2_alpha','sigma2_theta','sigma2_q','sigma2_Nz'},...
     'RowNames', {'From Analyitical PSD','From LYAP','From var.m'});
 
 % Pitch damper on:
-VAR = [var_on; lyap_var_on; V_on];
+VAR = [var_on_a; lyap_var_on; var_varm_on];
 SIGMA_on = table(VAR(:, 1), VAR(:, 2), VAR(:, 3), VAR(:, 4), VAR(:, 5),...
-    'VariableNames', {'sigma_V','sigma_alpha','sigma_theta','sigma_q','sigma_Nz'},...
+    'VariableNames', {'sigma2_V','sigma2_alpha','sigma2_theta','sigma2_q','sigma2_Nz'},...
     'RowNames', {'From Analyitical PSD','From LYAP','From var.m'});
-
 
 display(SIGMA_off)
 display(SIGMA_on)
-%%
-error13 = 100*(var_on-V_on)./var_on;
 
-error23 = 100*(lyap_var_on-V_on)./lyap_var_on
+%% Run for high N_it to get true variance estimate:
+% // see variance_ensemble.m //
 
-error12 = 100*(var_on-lyap_var_on)./var_on
+N_it    = 100;          % [-]
+T_real  = 500;          % [s]
+dt      = 0.1;          % [s]
+print_percentage_done = false;
 
-%%
+var_ensemble_on  = variance_ensemble(uncont, N_it, T_real, dt, print_percentage_done); display(var_ensemble_on);
+var_ensemble_off = variance_ensemble(cont, N_it, T_real, dt, print_percentage_done); display(var_ensemble_off);
+
+%% End session
 if visualize
     disp('  Press any button to close all windows.')
     pause
 end
 close all;
+
+%% Run plotting scripts separately to look at PSD figures:
+%%
+% plot_psd_analytic
+%%
+% plot_psd_fft
+%%
+% plot_psd_welch
+%%
+% plot_psds_subplots
+
+
+
+
