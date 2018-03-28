@@ -1,6 +1,6 @@
 %% Init
 clc; clear all; close all;
-addpath('functions', 'ML_ae4304')
+addpath('functions', 'ML_ae4304', 'plotting_scripts')
 
 str = input('Show all figures? [y/n]: ','s');
 if isempty(str)
@@ -123,14 +123,6 @@ if visualize
     legend('Pitch damper OFF', 'Pitch damper ON'); xlabel('t [s]'); grid;
 end
 
-%%
-figure;
-plot1 = plot(t,alpha_on, 'g');
-plot1.Color(4) = 1;
-hold on
-plot2 = plot(t, alpha_off, 'b');
-plot2.Color(4) = 0.5;
-
 %% 3) SPECTRAL ANALYSIS:
 % Subscripts:   - V/alpha/theta/q/N -for the 5 states
 %               - off/on            -for pitch damper status
@@ -162,31 +154,65 @@ S_N_on_a     = analytic_psd(cont, 3, 8, w_a);
 S_xx_off = [S_V_off_a, S_alpha_off_a, S_theta_off_a, S_q_off_a, S_N_off_a];
 S_xx_on = [S_V_on_a, S_alpha_on_a, S_theta_on_a, S_q_on_a, S_N_on_a];
 
-%% 3b) 3c) Experimental using FFT and pwelch:
+% ANALYTIC PLOTS:
+if visualize
+    plot_psd_analytic
+end
 
-dt = 0.1;
-T = 10000;
+%% 3b) Experimental using FFT:
+seed = 32;
+dt = 0.01;
+T = 50000;
+disp('Running DFT calculations.')
+%[omega, S_V_off_e, S_alpha_off_e, S_theta_off_e, S_q_off_e, S_N_off_e] = experi_psd(uncont,dt, T+dt, seed);
+%[~,     S_V_on_e,  S_alpha_on_e,  S_theta_on_e,  S_q_on_e,  S_N_on_e]  = experi_psd(cont,  dt, T+dt, seed);
+
+
+% 3c) PWELCH Routine:
+disp('Running PWELCH.')
+% settings:
+N = T/dt;
+window = 0.1*N;
+noverlap = 50;
 NFFT = 2048;
-disp('Running PSD calculation.')
-[omega, S_V_off_e, S_alpha_off_e, S_theta_off_e, S_q_off_e, S_N_off_e, PW_uncont, PW_w_uncont] = experi_psd(uncont, dt, T+dt, seed, NFFT);
-[~,     S_V_on_e,  S_alpha_on_e,  S_theta_on_e,  S_q_on_e,  S_N_on_e, PW_cont, PW_w_cont]  = experi_psd(cont, dt, T+dt, seed, NFFT);
+fs = 1/dt;
 
-% Collect data from PWELCH output matrix:
-S_V_off_p       = PW_uncont(:, 1);
-S_alpha_off_p   = PW_uncont(:, 2);
-S_theta_off_p   = PW_uncont(:, 3);
-S_q_off_p       = PW_uncont(:, 4);
-S_N_off_p       = PW_uncont(:, 5);
+fres = fs/N;
 
-S_V_on_p        = PW_cont(:, 1);
-S_alpha_on_p    = PW_cont(:, 2);
-S_theta_on_p    = PW_cont(:, 3);
-S_q_on_p        = PW_cont(:, 4);
-S_N_on_p        = PW_cont(:, 5);
+% Get time traces from lsim:
+[t_array, v_off, alpha_off, theta_off, q_off, N_off] = time_simulation(uncont, dt, T, seed, V, c);
+[~, v_on, alpha_on, theta_on, qc_V_on, N_z_on] = time_simulation(cont, dt, T, seed, V, c);
+
+% Execute pwelch.m
+%%
+[S_V_off_p,    f_p] = pwelch(v_off,     window, noverlap, N, fs, 'onesided'); S_V_off_p=S_V_off_p/2; S_V_off_p = S_V_off_p(2:N/2+1);
+[S_alpha_off_p, ~ ] = pwelch(alpha_off, window, noverlap, N, fs, 'onesided'); S_alpha_off_p=S_alpha_off_p/2; S_alpha_off_p = S_alpha_off_p(2:N/2+1);
+[S_theta_off_p, ~ ] = pwelch(theta_off, window, noverlap, N, fs, 'onesided'); 
+[S_q_off_p,     ~ ] = pwelch(q_off,     window, noverlap, N, fs, 'onesided'); 
+[S_N_off_p,     ~ ] = pwelch(N_off,     window, noverlap, N, fs, 'onesided'); 
+
+[S_V_on_p,      ~ ] = pwelch(v_on,      window, noverlap, N, fs, 'onesided'); S_V_on_p=S_V_on_p/2; S_V_on_p = S_V_on_p(2:N/2+1);
+[S_alpha_on_p,  ~ ] = pwelch(alpha_on,  window, noverlap, N, fs, 'onesided');
+[S_theta_on_p,  ~ ] = pwelch(theta_on,  window, noverlap, N, fs, 'onesided');
+[S_q_on_p,      ~ ] = pwelch(qc_V_on,   window, noverlap, N, fs, 'onesided');
+[S_N_on_p,      ~ ] = pwelch(N_z_on,    window, noverlap, N, fs, 'onesided');
 
 % rename frequency axes:
-w_e = omega;
-w_p = 2*pi*PW_w_cont;
+%w_e = omega;
+f_p = f_p(2:N/2+1);
+w_p = 2*pi*f_p;
+%
+if visualize
+    %plot_psd_fft
+    %plot_psd_welch
+end
+
+%%
+% pwelch Velocity
+figure('rend','painters','pos',[10 10 900 600]); 
+loglog(w_p, S_V_off_p, w_p, S_V_on_p, 'Linewidth', 1);
+title('Welch PSD Velocity PSD'); legend('Pitch damper OFF','Pitch damper ON')
+ylabel('S_{VV}'); xlabel('log w'); grid;
 
 %% 3d) Visualize PSDS plots:
 if visualize
@@ -290,6 +316,6 @@ error12 = 100*(var_on-lyap_var_on)./var_on
 %%
 if visualize
     disp('  Press any button to close all windows.')
+    pause
 end
-pause
 close all;

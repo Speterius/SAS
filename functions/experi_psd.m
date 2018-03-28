@@ -1,4 +1,4 @@
-function [omega, S_V, S_alpha, S_theta, S_q, S_N, PSD_pwelch_out, f] = experi_psd(sys, dt, T, seed, NFFT)
+function [omega, S_V, S_alpha, S_theta, S_q, S_N] = experi_psd(sys, dt, T, seed)
 
 % Based on exampl83.m
 
@@ -49,30 +49,21 @@ function [omega, S_V, S_alpha, S_theta, S_q, S_N, PSD_pwelch_out, f] = experi_ps
     N_z_f     = dt*fft(N_z);
 
 % PSD ESTIMATE
-    S_V     = (1/T)*( V_f.*conj(V_f));
-    S_alpha = (1/T)*(  alpha_f.*conj(alpha_f));
-    S_theta = (1/T)*(    theta_f.*conj(theta_f));
-    S_q     = (1/T)*(    qc_V_f.*conj(qc_V_f));
+    S_V     = (1/T)*(V_f.*conj(V_f));
+    S_alpha = (1/T)*(alpha_f.*conj(alpha_f));
+    S_theta = (1/T)*(theta_f.*conj(theta_f));
+    S_q     = (1/T)*(qc_V_f.*conj(qc_V_f));
     S_N     = (1/T)*(N_z_f.*conj(N_z_f));
 
 % DEFINE FREQUENCY VECTOR
     fs = 1/dt;     % sample frequency
     omega = 2*pi*fs*(0:(N/2)-1)/N;
 
-% CUT PSDS IN HALF:
+% Only positive side:
     S_V         = S_V(1:N/2);
     S_alpha     = S_alpha(1:N/2);
     S_theta     = S_theta(1:N/2);
     S_q         = S_q(1:N/2);
     S_N         = S_N(1:N/2);
-    
-%% Use pwelch routine:    
-% time data:
-    x = [V, alpha, theta, qc_V, N_z];
-    
-% pwelch routine:
-    window = floor(3*N/5);
-    noverlap = floor(window/2);
-    [PSD_pwelch_out, f] = pwelch(x, window, noverlap, NFFT, fs);
 
 end
